@@ -16,6 +16,7 @@ typedef struct _List_LockHandle
 {
 	List_Handle_t list_handle;
 	pthread_mutex_t lock;
+	pthread_cond_t  condl;
 }List_LockHandle_t;
 
 List_LockHandle_t* list_lockAndCreate();

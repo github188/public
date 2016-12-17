@@ -436,3 +436,94 @@ int list_lockAndClear(List_LockHandle_t * pList_handle)
 }
 
 
+/*****************************************************************************/
+static int list_wait_signal(List_LockHandle_t* pHeadHandle, int time)
+{
+	struct timespec abstime = {2, 0};
+	struct timeval now;
+	int ret = 0;
+	if(pHeadHandle == NULL)
+	{
+		return -1;
+	}
+	if(time > 0)
+	{
+		gettimeofday(&now, NULL);
+		abstime.tv_sec = now.tv_sec + time / 1000;
+		abstime.tv_nsec = (now.tv_usec * 1000) + (time % 1000) * 1000 * 1000;
+		ret = pthread_cond_timedwait(&(pHeadHandle->condl), &(pHeadHandle->lock), &abstime);
+	}
+	else
+	{
+		ret= pthread_cond_wait(&(pHeadHandle->condl), &(pHeadHandle->lock));
+	}
+
+	return ret;
+}
+
+ List_NodeData_t list_lockAndPop_backSignal(List_LockHandle_t* pHeadHandle, int time)
+{
+	List_NodeData_t pNodeData = NULL;
+	int size = 0;
+	if(pHeadHandle == NULL)
+	{
+		return NULL;
+	}
+	pthread_mutex_lock(&(pHeadHandle->lock));
+	if((size = list_size(pHeadHandle->pList_Handle)) <= 0)
+	{
+		list_wait_signal(pHeadHandle,  time);
+	}
+
+	pNodeData = list_pop_back(pHeadHandle->pList_Handle);
+	pthread_mutex_unlock(&(pHeadHandle->lock));
+	return pNodeData;
+}
+
+List_NodeData_t list_lockAndPop_frontSignal(List_LockHandle_t* pHeadHandle, int time)
+{
+	List_NodeData_t pNodeData = NULL;
+	int size = 0;
+	if(pHeadHandle == NULL)
+	{
+		return NULL;
+	}
+	pthread_mutex_lock(&(pHeadHandle->lock));
+	if((size = list_size(pHeadHandle->pList_Handle)) <= 0)
+	{
+		list_wait_signal(pHeadHandle,  time);
+	}
+	pNodeData = list_pop_front(pHeadHandle->pList_Handle);
+	pthread_mutex_unlock(&(pHeadHandle->lock));
+	return pNodeData;
+}
+
+List_CurNode_t list_lockAndPush_backSignal(List_LockHandle_t* pHeadHandle, void* pData)
+{
+	List_CurNode_t pNodeData = NULL;
+	if(pHeadHandle == NULL)
+	{
+		return NULL;
+	}
+	pthread_mutex_lock(&(pHeadHandle->lock));
+	pNodeData = list_push_back(pHeadHandle->pList_Handle, pData);
+	pthread_cond_signal(&(pHeadHandle->condl));
+	pthread_mutex_unlock(&(pHeadHandle->lock));
+	return pNodeData;
+}
+
+List_CurNode_t list_lockAndPush_frontSignal(List_LockHandle_t* pHeadHandle, void* pData)
+{
+	List_CurNode_t pNodeData = NULL;
+	if(pHeadHandle == NULL)
+	{
+		return NULL;
+	}
+	pthread_mutex_lock(&(pHeadHandle->lock));
+	pNodeData = list_push_front(pHeadHandle->pList_Handle, pData);
+	pthread_cond_signal(&(pHeadHandle->condl));
+	pthread_mutex_unlock(&(pHeadHandle->lock));
+	return pNodeData;
+}
+
+
